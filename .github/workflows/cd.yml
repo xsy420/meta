@@ -6,9 +6,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  PROJECT_NAME: ${{ github.repository.name }}
-
 jobs:
   generate-changelog:
     name: Generate changelog
@@ -26,6 +23,9 @@ jobs:
         with:
           config: cliff.toml
           args: -vv --latest --no-exec --github-repo ${{ github.repository }}
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
 
   publish-binaries:
     name: Publish binaries
@@ -145,24 +145,24 @@ jobs:
         run: |
           mkdir -p release/
           cp {LICENSE,README.md,CHANGELOG.md} release/
-          for bin in '${{ env.PROJECT_NAME }}'; do
+          for bin in '${{ github.repository.name }}'; do
             if [ "${{ matrix.build.OS }}" = "windows-2022" ]; then
               bin="${bin}.exe"
             fi
             cp "target/${{ matrix.build.TARGET }}/release/${bin}" release/
           done
-          mv release/ ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}/
+          mv release/ ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}/
       - name: Create release artifacts
         shell: bash
         run: |
           if [ "${{ matrix.build.OS }}" = "windows-2022" ]; then
-            7z a -tzip "${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.zip" \
-              ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}/
+            7z a -tzip "${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.zip" \
+              ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}/
           else
-            tar -czvf ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz \
-              ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}/
-            shasum -a 512 ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz \
-              > ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz.sha512
+            tar -czvf ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz \
+              ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}/
+            shasum -a 512 ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz \
+              > ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz.sha512
           fi
       - name: Sign the release
         if: matrix.build.OS == 'ubuntu-22.04' || matrix.build.OS == 'macos-14'
@@ -172,26 +172,26 @@ jobs:
             --passphrase-fd 0 --import private.key
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
             --passphrase-fd 0 --detach-sign \
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}.tar.gz
       - name: Create additional release files
         shell: bash
         run: |
-          tar -cf - ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}/ | xz -9 > ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz
+          tar -cf - ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}/ | xz -9 > ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
             --passphrase-fd 0 --detach-sign \
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz
-          shasum -a 512 ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz \
-            > ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz
+          shasum -a 512 ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz \
+            > ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
       - name: Publish to GitHub
         if: ${{ !contains(github.ref, '-') }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: |
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}*
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz.sig
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}*
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz.sig
           file_glob: true
           overwrite: true
           tag: ${{ github.ref }}
@@ -203,10 +203,10 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: |
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}*
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.tar.xz.sig
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}-${{ matrix.build.TARGET }}*
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz.sha512
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.tar.xz.sig
           file_glob: true
           overwrite: true
           tag: ${{ github.ref }}
@@ -232,9 +232,10 @@ jobs:
       - name: Install cargo-deb
         run: cargo install cargo-deb
       - name: Build Debian package
+        # target list
         run: |
-          cargo build --release --locked -p ${{ env.PROJECT_NAME }}
-          cargo-deb --deb-revision="" --strip -p ${{ env.PROJECT_NAME }} -v -o ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.deb
+          cargo build --release --locked -p ${{ github.repository.name }}
+          cargo-deb --deb-revision="" --strip -p ${{ github.repository.name }} -v -o ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.deb
       - name: Sign the package
         run: |
           echo "${{ secrets.GPG_RELEASE_KEY }}" | base64 --decode > private.key
@@ -242,13 +243,13 @@ jobs:
             --passphrase-fd 0 --import private.key
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
             --passphrase-fd 0 --detach-sign \
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.deb
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.deb
       - name: Upload the release
         if: ${{ !contains(github.ref, '-') }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.deb
+          file: ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.deb
           tag: ${{ github.ref }}
           release_name: "Release v${{ env.RELEASE_VERSION }}"
           body: "${{ needs.generate-changelog.outputs.release_body }}"
@@ -257,7 +258,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.deb
+          file: ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.deb
           tag: ${{ github.ref }}
           release_name: "Pre-release v${{ env.RELEASE_VERSION }}"
           prerelease: true
@@ -282,8 +283,8 @@ jobs:
         run: cargo install cargo-generate-rpm
       - name: Build RPM package
         run: |
-          cargo build --release --locked -p ${{ env.PROJECT_NAME }}
-          cargo generate-rpm -p ${{ env.PROJECT_NAME }} -o ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
+          cargo build --release --locked -p ${{ github.repository.name }}
+          cargo generate-rpm -p ${{ github.repository.name }} -o ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
       - name: Sign the package
         run: |
           echo "${{ secrets.GPG_RELEASE_KEY }}" | base64 --decode > private.key
@@ -291,13 +292,13 @@ jobs:
             --passphrase-fd 0 --import private.key
           echo "${{ secrets.GPG_PASSPHRASE }}" | gpg --pinentry-mode=loopback \
             --passphrase-fd 0 --detach-sign \
-            ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
+            ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
       - name: Upload the release
         if: ${{ !contains(github.ref, '-') }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
+          file: ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
           tag: ${{ github.ref }}
           release_name: "Release v${{ env.RELEASE_VERSION }}"
           body: "${{ needs.generate-changelog.outputs.release_body }}"
@@ -306,7 +307,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ env.PROJECT_NAME }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
+          file: ${{ github.repository.name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
           tag: ${{ github.ref }}
           release_name: "Pre-release v${{ env.RELEASE_VERSION }}"
           prerelease: true
