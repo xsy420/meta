@@ -34,7 +34,7 @@ jobs:
           toolchain: stable
       - name: Install typos
         run: cargo install typos-cli
-      - name: Generate a latest changelog
+      - name: Generate changelog
         uses: orhun/git-cliff-action@main
         id: git-cliff
         with:
@@ -43,30 +43,6 @@ jobs:
         env:
           OUTPUT: latest-CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
-      - name: Generate a full changelog
-        uses: orhun/git-cliff-action@v4
-        with:
-          config: cliff.toml
-          args: --verbose
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
-      - name: import gpg key
-        id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.GPG_RELEASE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          trust_level: 5
-      - name: Commit changelog
-        run: |
-          git checkout main
-          set +e
-          git add CHANGELOG.md
-          git commit -S -m "Update changelog" -m "Signed-off-by: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git main
   publish-binaries:
     name: Publish binaries
     needs: generate-changelog
