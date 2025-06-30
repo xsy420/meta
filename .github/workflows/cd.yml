@@ -182,11 +182,11 @@ jobs:
           mkdir -p release/
           cp {LICENSE,README.md,CHANGELOG.md} release/
           if [ "${{ inputs.mangen }}" == "true" ]; then
-            mkdir man
+            mkdir -p release/man
             OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
           fi
           if [ "${{ inputs.completions }}" == "true" ]; then
-            mkdir completions
+            mkdir -p release/completions
             OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
           fi;
           for bin in '${{ inputs.repository_name }}'; do
@@ -265,11 +265,11 @@ jobs:
           cargo build --release --locked
           if [ "${{ inputs.mangen }}" == "true" ]; then
             mkdir man
-            OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
+            OUT_DIR=man cargo run --release --bin ${{ inputs.mangen_bin_name }}
           fi
           if [ "${{ inputs.completions }}" == "true" ]; then
             mkdir completions
-            OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
+            OUT_DIR=completions cargo run --release --bin ${{ inputs.completions_bin_name }}
           fi;
           cargo deb --deb-revision="" --strip -v -o ${{ inputs.repository_name }}-${{ env.RELEASE_VERSION }}.deb
       - name: import gpg key
@@ -324,11 +324,11 @@ jobs:
           cargo build --release --locked
           if [ "${{ inputs.mangen }}" == "true" ]; then
             mkdir man
-            OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
+            OUT_DIR=man cargo run --release --bin ${{ inputs.mangen_bin_name }}
           fi
           if [ "${{ inputs.completions }}" == "true" ]; then
             mkdir completions
-            OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
+            OUT_DIR=completions cargo run --release --bin ${{ inputs.completions_bin_name }}
           fi;
           cargo generate-rpm -o ${{ inputs.repository_name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
       - name: import gpg key
