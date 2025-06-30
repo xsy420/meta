@@ -7,6 +7,26 @@ on:
         description: 'The name of the repository/binary to package'
         required: true
         type: string
+      mangen:
+        description: 'Whether to create man page'
+        required: false
+        type: boolean
+        default: false
+      mangen_bin_name:
+        description: 'Name of the binary to generate man page for'
+        required: false
+        type: string
+        default: ''
+      completions:
+        description: 'Whether to create shell completions'
+        required: false
+        type: boolean
+        default: false
+      completions_bin_name:
+        description: 'Name of the binary to generate completions for'
+        required: false
+        type: string
+        default: ''
     secrets:
       GPG_RELEASE_KEY:
         required: true
@@ -161,6 +181,14 @@ jobs:
         run: |
           mkdir -p release/
           cp {LICENSE,README.md,CHANGELOG.md} release/
+          if ${{ inputs.mangen }}; then
+            mkdir man
+            OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
+          fi
+          if ${{ inputs.completions }}; then
+            mkdir completions
+            OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
+          fi;
           for bin in '${{ inputs.repository_name }}'; do
             if [ "${{ matrix.build.OS }}" = "windows-2022" ]; then
               bin="${bin}.exe"
@@ -235,6 +263,14 @@ jobs:
       - name: Build Debian package
         run: |
           cargo build --release --locked
+          if ${{ inputs.mangen }}; then
+            mkdir man
+            OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
+          fi
+          if ${{ inputs.completions }}; then
+            mkdir completions
+            OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
+          fi;
           cargo deb --deb-revision="" --strip -v -o ${{ inputs.repository_name }}-${{ env.RELEASE_VERSION }}.deb
       - name: import gpg key
         id: import_gpg
@@ -286,6 +322,14 @@ jobs:
       - name: Build RPM package
         run: |
           cargo build --release --locked
+          if ${{ inputs.mangen }}; then
+            mkdir man
+            OUT_DIR=release/man/ cargo run --release --bin ${{ inputs.mangen_bin_name }}
+          fi
+          if ${{ inputs.completions }}; then
+            mkdir completions
+            OUT_DIR=release/completions/ cargo run --release --bin ${{ inputs.completions_bin_name }}
+          fi
           cargo generate-rpm -o ${{ inputs.repository_name }}-${{ env.RELEASE_VERSION }}.x86_64.rpm
       - name: import gpg key
         id: import_gpg
